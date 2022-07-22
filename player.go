@@ -12,6 +12,7 @@ import (
 func NewPlayer(b *Bot) (a *Player) {
 	a = new(Player)
 	a.bot = b
+	a.list = make(map[int]*api.Message)
 	return
 }
 
