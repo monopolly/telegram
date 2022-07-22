@@ -55,8 +55,11 @@ type Bot struct {
 }
 
 func (a *Bot) Name() string {
-
 	return a.bot.Self.UserName
+}
+
+func (a *Bot) Player() *Player {
+	return NewPlayer(a)
 }
 
 //admin password and admin json store
