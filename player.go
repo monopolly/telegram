@@ -14,7 +14,6 @@ type Message = api.Message
 func NewPlayer(b *Bot) (a *Player) {
 	a = new(Player)
 	a.bot = b
-	a.list = make(map[int]*Message)
 	return
 }
 
@@ -32,6 +31,7 @@ func (a *Player) Log(text string, args ...interface{}) (err error) {
 
 	// first init
 	if a.list == nil {
+		a.list = make(map[int]*Message)
 		for id := range a.bot.admins {
 			m := api.NewMessage(int64(id), fmt.Sprintf(text, args...))
 			m.ParseMode = api.ModeMarkdown
