@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	api "github.com/go-telegram-bot-api/telegram-bot-api"
@@ -47,6 +48,7 @@ type Bot struct {
 	bot     *api.BotAPI
 	router  func(*Context)
 	admins  map[int]bool
+	m       sync.Mutex
 	pass    string
 	file    string
 	filebot *telebot.Bot
@@ -72,9 +74,11 @@ func (a *Bot) AddAdmin(id int) *Bot {
 
 func (a *Bot) Admins() []int {
 	var list []int
+	a.m.Lock()
 	for x := range a.admins {
 		list = append(list, x)
 	}
+	a.m.Unlock()
 	return list
 }
 
@@ -85,53 +89,20 @@ func (a *Bot) loadAdmins() {
 	file.LoadJson(a.file, &a.admins)
 }
 
+// safe
 func (a *Bot) Log(text string, arg ...interface{}) {
 	if a.bot == nil {
 		return
 	}
+	a.m.Lock()
 	for id := range a.admins {
 		m := api.NewMessage(int64(id), fmt.Sprintf(text, arg...))
 		m.ParseMode = api.ModeMarkdown
 		m.DisableWebPagePreview = true
 		a.bot.Send(m)
 	}
+	a.m.Unlock()
 }
-
-type play struct {
-	bot  *Bot
-	list []api.Message
-}
-
-func (a *Bot) LogPlay(text string, args ...interface{}) (p *play) {
-	if a.bot == nil {
-		return
-	}
-	p = new(play)
-	p.bot = a
-
-	for id := range a.admins {
-		m := api.NewMessage(int64(id), fmt.Sprintf(text, args...))
-		m.ParseMode = api.ModeMarkdown
-		m.DisableWebPagePreview = true
-		ms, err := a.bot.Send(m)
-		if err != nil {
-			continue
-		}
-		p.list = append(p.list, ms)
-	}
-
-	return
-}
-
-func (a *play) Send(text string, args ...interface{}) {
-	for _, x := range a.list {
-		msg := api.NewEditMessageText(x.Chat.ID, x.MessageID, fmt.Sprintf(text, args...))
-		a.bot.bot.Send(msg)
-	}
-}
-
-func (a *play) Store(filename string)   {}
-func (a *play) Restore(filename string) {}
 
 func (a *Bot) Filename(f string) {
 	a.file = f
