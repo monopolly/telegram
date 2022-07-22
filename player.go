@@ -9,16 +9,18 @@ import (
 	api "github.com/go-telegram-bot-api/telegram-bot-api"
 )
 
+type Message = api.Message
+
 func NewPlayer(b *Bot) (a *Player) {
 	a = new(Player)
 	a.bot = b
-	a.list = make(map[int]*api.Message)
+	a.list = make(map[int]*Message)
 	return
 }
 
 type Player struct {
 	bot  *Bot
-	list map[int]*api.Message
+	list map[int]*Message
 	m    sync.Mutex
 }
 
