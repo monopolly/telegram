@@ -7,13 +7,13 @@ import (
 	"sync"
 	"time"
 
-	api "github.com/go-telegram-bot-api/telegram-bot-api"
-	"github.com/tucnak/telebot"
+	api "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"gopkg.in/telebot.v3"
 
 	"github.com/monopolly/file"
 )
 
-func New(token string, admins ...int) (a *Bot, err error) {
+func New(token string, admins ...int64) (a *Bot, err error) {
 	a = new(Bot)
 
 	a.bot, err = api.NewBotAPI(token)
@@ -22,22 +22,11 @@ func New(token string, admins ...int) (a *Bot, err error) {
 		return
 	}
 
-	/* switch client != nil {
-	case true:
-
-	default:
-		a.bot, err = api.NewBotAPIWithClient(token, api.APIEndpoint, client[0])
-		if err != nil {
-			log.Println(err)
-			return
-		}
-	} */
-
-	a.admins = make(map[int]bool)
+	a.admins = make(map[int64]bool)
 	for _, x := range admins {
 		a.admins[x] = true
 	}
-	//log.Println("telegram", a.bot.Self.UserName)
+
 	a.filebot, _ = telebot.NewBot(telebot.Settings{
 		Token: token,
 	})
@@ -47,7 +36,7 @@ func New(token string, admins ...int) (a *Bot, err error) {
 type Bot struct {
 	bot     *api.BotAPI
 	router  func(*Context)
-	admins  map[int]bool
+	admins  map[int64]bool
 	m       sync.Mutex
 	pass    string
 	file    string
@@ -71,12 +60,12 @@ func (a *Bot) Pass(pass string) *Bot {
 }
 
 func (a *Bot) AddAdmin(id int) *Bot {
-	a.admins[id] = true
+	a.admins[int64(id)] = true
 	return a
 }
 
-func (a *Bot) Admins() []int {
-	var list []int
+func (a *Bot) Admins() []int64 {
+	var list []int64
 	a.m.Lock()
 	for x := range a.admins {
 		list = append(list, x)
@@ -211,6 +200,7 @@ func (a *Bot) SendText(chatID int64, text string) (res api.Message) {
 	return
 }
 
+/*
 func (a *Bot) SendImage(chatID int64, path string, caption ...string) {
 	if a == nil {
 		return
@@ -228,14 +218,14 @@ func (a *Bot) SendSticker(chatID int64, id string) {
 	}
 	msg := api.NewStickerShare(chatID, id)
 	a.bot.Send(msg)
-}
+} */
 
 //images, video
 func (a *Bot) SendImages(chatID int64, url ...string) {
 	if a == nil {
 		return
 	}
-	user := &telebot.User{ID: int(chatID)}
+	user := &telebot.User{ID: chatID}
 	var files telebot.Album
 	for _, x := range url {
 		files = append(files, &telebot.Photo{File: telebot.FromDisk(x)})
@@ -255,6 +245,7 @@ func (a *Bot) SendImages(chatID int64, url ...string) {
 
 }
 
+/*
 func (a *Bot) SendImageBytes(chatID int64, f []byte, caption ...string) {
 	if a == nil {
 		return
@@ -287,7 +278,7 @@ func (a *Bot) SendfileBytes(chatID int64, f interface{}, caption ...string) (err
 	}
 	_, err = a.bot.Send(msg)
 	return
-}
+} */
 
 func (a *Bot) Start(router ...func(*Context)) {
 	if a == nil {
@@ -304,10 +295,8 @@ func (a *Bot) Start(router ...func(*Context)) {
 	u := api.NewUpdate(0)
 	u.Timeout = 60
 
-	updates, err := a.bot.GetUpdatesChan(u)
-	if err != nil {
-		log.Panic(err)
-	}
+	updates := a.bot.GetUpdatesChan(u)
+
 	time.Sleep(time.Millisecond * 500)
 	updates.Clear()
 

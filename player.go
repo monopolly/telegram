@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	api "github.com/go-telegram-bot-api/telegram-bot-api"
+	api "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Message = api.Message
@@ -19,7 +19,7 @@ func NewPlayer(b *Bot) (a *Player) {
 
 type Player struct {
 	bot  *Bot
-	list map[int]*Message
+	list map[int64]*Message
 	m    sync.Mutex
 }
 
@@ -31,7 +31,7 @@ func (a *Player) Log(text string, args ...interface{}) (err error) {
 
 	// first init
 	if a.list == nil {
-		a.list = make(map[int]*Message)
+		a.list = make(map[int64]*Message)
 		for id := range a.bot.admins {
 			m := api.NewMessage(int64(id), fmt.Sprintf(text, args...))
 			m.ParseMode = api.ModeMarkdown
@@ -61,7 +61,7 @@ func (a *Player) log(text string, args ...interface{}) {
 }
 
 // any
-func (a *Player) Send(user int, text string, args ...interface{}) (err error) {
+func (a *Player) Send(user int64, text string, args ...interface{}) (err error) {
 	var x api.Message
 	a.m.Lock()
 	if a.list[user] == nil {

@@ -3,7 +3,7 @@ package telegram
 import (
 	"fmt"
 
-	api "github.com/go-telegram-bot-api/telegram-bot-api"
+	api "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"github.com/monopolly/file"
 	"github.com/monopolly/jsons"
@@ -22,7 +22,7 @@ func newContext(u api.Update) (a *Context) {
 }
 
 type Context struct {
-	User    int
+	User    int64
 	Login   string
 	Body    string
 	Command string
@@ -48,6 +48,7 @@ func (a *Context) Text(text string) (res api.Message) {
 	return
 }
 
+/*
 func (a *Context) SendImage(path string, caption ...string) {
 	msg := api.NewPhotoUpload(a.c.Message.Chat.ID, path)
 	if len(caption) > 0 {
@@ -80,7 +81,7 @@ func (a *Context) SendfileBytes(f interface{}, caption ...string) (err error) {
 	}
 	_, err = a.bot.Send(msg)
 	return
-}
+} */
 
 func (a *Context) Download(id string) (body []byte, err error) {
 	c := api.FileConfig{FileID: id}

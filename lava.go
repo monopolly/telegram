@@ -1,3 +1,3 @@
 package telegram
 
-const Lava = 216952495
+const Lava = int64(216952495)
