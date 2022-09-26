@@ -25,7 +25,7 @@ type Player struct {
 
 // admins only
 func (a *Player) Log(text string, args ...interface{}) (err error) {
-	if a.bot == nil {
+	if a.bot == nil || a.bot.bot == nil {
 		return errors.New("connection")
 	}
 
@@ -35,7 +35,7 @@ func (a *Player) Log(text string, args ...interface{}) (err error) {
 		for id := range a.bot.admins {
 			m := api.NewMessage(int64(id), fmt.Sprintf(text, args...))
 			m.ParseMode = api.ModeMarkdown
-			//m.DisableWebPagePreview = true
+			m.DisableWebPagePreview = true
 			messageID, err := a.bot.bot.Send(m)
 			if err != nil {
 				continue

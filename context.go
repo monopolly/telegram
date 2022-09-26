@@ -48,6 +48,18 @@ func (a *Context) Text(text string) (res api.Message) {
 	return
 }
 
+func (a *Context) SendfileBytes(data []byte, caption ...string) (err error) {
+	f := api.FileBytes{Bytes: data}
+	if len(caption) > 0 {
+		f.Name = caption[0]
+	} else {
+		f.Name = "upfile"
+	}
+	msg := api.NewDocument(a.c.Message.Chat.ID, f)
+	_, err = a.bot.Send(msg)
+	return
+}
+
 /*
 func (a *Context) SendImage(path string, caption ...string) {
 	msg := api.NewPhotoUpload(a.c.Message.Chat.ID, path)
