@@ -130,8 +130,8 @@ func (a *Bot) SendMarkdown(chatID int64, text string) (err error) {
 	*/
 	msg := api.NewMessage(chatID, text)
 	msg.ParseMode = api.ModeMarkdown
+	msg.DisableWebPagePreview = true
 	_, err = a.bot.Send(msg)
-
 	return
 }
 
@@ -243,6 +243,18 @@ func (a *Bot) SendImages(chatID int64, url ...string) {
 		fmt.Println("send images", err)
 	}
 
+}
+
+func (a *Bot) SendfileBytes(chatID int64, data []byte, caption ...string) (err error) {
+	f := api.FileBytes{Bytes: data}
+	if len(caption) > 0 {
+		f.Name = caption[0]
+	} else {
+		f.Name = "upfile"
+	}
+	msg := api.NewDocument(chatID, f)
+	_, err = a.bot.Send(msg)
+	return
 }
 
 /*
