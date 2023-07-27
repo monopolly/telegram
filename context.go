@@ -42,8 +42,8 @@ func (a *Context) Set(key string, value interface{}) {
 	jsons.Set(a.keys, key, value)
 }
 
-func (a *Context) Text(text string) (res api.Message) {
-	msg := api.NewMessage(a.c.Message.Chat.ID, text)
+func (a *Context) Text(text string, v ...interface{}) (res api.Message) {
+	msg := api.NewMessage(a.c.Message.Chat.ID, fmt.Sprintf(text, v...))
 	res, _ = a.bot.Send(msg)
 	return
 }
@@ -102,7 +102,7 @@ func (a *Context) Download(id string) (body []byte, err error) {
 		return
 	}
 	link := f.Link(a.bot.Token)
-	body, _ = file.Downloads(link)
+	body, _ = file.Get(link)
 	return
 }
 
@@ -113,6 +113,16 @@ func (a *Context) Markdown(text string, preview ...bool) {
 		[inline URL](http://www.example.com/)
 		[inline mention of a user](tg://user?id=123456789)
 		pre-formatted fixed-width code block
+
+		messageEntityBold => <b>bold</b>, <strong>bold</strong>, **bold**
+		messageEntityItalic => <i>italic</i>, <em>italic</em> *italic*
+		messageEntityCode => <code>code</code>, `code`
+		messageEntityStrike => <s>strike</s>, <strike>strike</strike>, <del>strike</del>, ~~strike~~
+		messageEntityUnderline => <u>underline</u>
+		messageEntityPre => <pre language="c++">code</pre>,
+		```c++
+		code
+		```
 	*/
 	msg := api.NewMessage(a.c.Message.Chat.ID, text)
 	msg.ParseMode = api.ModeMarkdown
@@ -142,7 +152,7 @@ func (a *Context) Link(title, url string, preview ...bool) {
 	a.Markdown(fmt.Sprintf(`[%s](%s)`, title, url), preview...)
 }
 
-//Button with markdown
+// Button with markdown
 func (a *Context) Button(message, title, link string) {
 	//msg := api.NewInlineKeyboardButtonURL(title, link) //api.NewEditMessageReplyMarkup(a.c.Message.Chat.ID, c.Message.MessageID, text)
 	//msg := api.NewInlineKeyboardButtonData(title, link)

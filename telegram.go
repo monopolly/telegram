@@ -1,9 +1,7 @@
 package telegram
 
 import (
-	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -12,6 +10,8 @@ import (
 
 	"github.com/monopolly/file"
 )
+
+const maxLen = 4000 //telegram
 
 func New(token string, admins ...int64) (a *Bot, err error) {
 	a = new(Bot)
@@ -30,6 +30,8 @@ func New(token string, admins ...int64) (a *Bot, err error) {
 	a.filebot, _ = telebot.NewBot(telebot.Settings{
 		Token: token,
 	})
+
+	a.callbacks.list = make(map[string]func(*Message))
 	return
 }
 
@@ -41,6 +43,10 @@ type Bot struct {
 	pass    string
 	file    string
 	filebot *telebot.Bot
+
+	callbacks struct {
+		list map[string]func(*Message)
+	}
 }
 
 func (a *Bot) Name() string {
@@ -51,7 +57,7 @@ func (a *Bot) Player() *Player {
 	return NewPlayer(a)
 }
 
-//admin password and admin json store
+// admin password and admin json store
 func (a *Bot) Pass(pass string) *Bot {
 	a.pass = pass
 	/* a.file = fmt.Sprintf("tg_%s.json", a.bot.Self.UserName)
@@ -59,108 +65,8 @@ func (a *Bot) Pass(pass string) *Bot {
 	return a
 }
 
-func (a *Bot) AddAdmin(id int) *Bot {
-	a.admins[int64(id)] = true
-	return a
-}
-
-func (a *Bot) Admins() []int64 {
-	var list []int64
-	a.m.Lock()
-	for x := range a.admins {
-		list = append(list, x)
-	}
-	a.m.Unlock()
-	return list
-}
-
-func (a *Bot) storeAdmins() {
-	file.Json(a.file, a.admins)
-}
-func (a *Bot) loadAdmins() {
-	file.LoadJson(a.file, &a.admins)
-}
-
-// safe
-func (a *Bot) Log(text string, arg ...interface{}) {
-	if a.bot == nil {
-		return
-	}
-	a.m.Lock()
-	for id := range a.admins {
-		m := api.NewMessage(int64(id), fmt.Sprintf(text, arg...))
-		m.ParseMode = api.ModeMarkdown
-		m.DisableWebPagePreview = true
-		a.bot.Send(m)
-	}
-	a.m.Unlock()
-}
-
-func (a *Bot) Filename(f string) {
-	a.file = f
-}
-
 func (a *Bot) Bot() *api.BotAPI {
 	return a.bot
-}
-
-func (a *Bot) Channel(ch, text string) (err error) {
-	if a == nil {
-		return
-	}
-	if !strings.HasPrefix(ch, "@") {
-		ch = "@" + ch
-	}
-	b := api.NewMessageToChannel(ch, text)
-	b.ParseMode = api.ModeMarkdown
-	_, err = a.bot.Send(b)
-	return
-}
-
-func (a *Bot) SendMarkdown(chatID int64, text string) (err error) {
-	if a == nil {
-		return
-	}
-	/*
-		*bold text*
-		_italic text_
-		[inline URL](http://www.example.com/)
-		[inline mention of a user](tg://user?id=123456789)
-		pre-formatted fixed-width code block
-	*/
-	msg := api.NewMessage(chatID, text)
-	msg.ParseMode = api.ModeMarkdown
-	msg.DisableWebPagePreview = true
-	_, err = a.bot.Send(msg)
-	return
-}
-
-func (a *Bot) SendHTML(chatID int64, text string) (err error) {
-	if a == nil {
-		return
-	}
-	/*
-		<b>bold</b>,
-		<strong>bold</strong>
-		<i>italic</i>,
-		<em>italic</em>
-		<a href="http://www.example.com/">inline URL</a>
-		<a href="tg://user?id=123456789">inline mention of a user</a>
-		<code>inline fixed-width code</code>
-		<pre>pre-formatted fixed-width code block</pre>
-	*/
-	msg := api.NewMessage(chatID, text)
-	msg.ParseMode = api.ModeHTML
-	_, err = a.bot.Send(msg)
-
-	return
-}
-
-func (a *Bot) SendLink(chatID int64, title, url string) {
-	if a == nil {
-		return
-	}
-	a.SendMarkdown(chatID, fmt.Sprintf(`[%s](%s)`, title, url))
 }
 
 func (a *Bot) GetFileLink(id string) (link string) {
@@ -182,115 +88,9 @@ func (a *Bot) DownloadFile(id string) (body []byte) {
 	if link == "" {
 		return
 	}
-	body, _ = file.Downloads(link)
+	body, _ = file.Get(link)
 	return
 }
-
-/* func (a *Bot) SendButton(chatID int64, title, link string) {
-	msg := api.NewInlineKeyboardButtonURL() .NewMessage(chatID, text)
-	res, _ = a.bot.Send(msg)
-} */
-
-func (a *Bot) SendText(chatID int64, text string) (res api.Message) {
-	if a == nil {
-		return
-	}
-	msg := api.NewMessage(chatID, text)
-	res, _ = a.bot.Send(msg)
-	return
-}
-
-/*
-func (a *Bot) SendImage(chatID int64, path string, caption ...string) {
-	if a == nil {
-		return
-	}
-	msg := api.NewPhotoUpload(chatID, path)
-	if len(caption) > 0 {
-		msg.Caption = caption[0]
-	}
-	a.bot.Send(msg)
-}
-
-func (a *Bot) SendSticker(chatID int64, id string) {
-	if a == nil {
-		return
-	}
-	msg := api.NewStickerShare(chatID, id)
-	a.bot.Send(msg)
-} */
-
-//images, video
-func (a *Bot) SendImages(chatID int64, url ...string) {
-	if a == nil {
-		return
-	}
-	user := &telebot.User{ID: chatID}
-	var files telebot.Album
-	for _, x := range url {
-		files = append(files, &telebot.Photo{File: telebot.FromDisk(x)})
-		if len(files) >= 10 {
-			_, err := a.filebot.SendAlbum(user, files)
-			if err != nil {
-				fmt.Println("send images", err)
-				continue
-			}
-			files = nil
-		}
-	}
-	_, err := a.filebot.SendAlbum(user, files)
-	if err != nil {
-		fmt.Println("send images", err)
-	}
-
-}
-
-func (a *Bot) SendfileBytes(chatID int64, data []byte, caption ...string) (err error) {
-	f := api.FileBytes{Bytes: data}
-	if len(caption) > 0 {
-		f.Name = caption[0]
-	} else {
-		f.Name = "upfile"
-	}
-	msg := api.NewDocument(chatID, f)
-	_, err = a.bot.Send(msg)
-	return
-}
-
-/*
-func (a *Bot) SendImageBytes(chatID int64, f []byte, caption ...string) {
-	if a == nil {
-		return
-	}
-	msg := api.NewPhotoUpload(chatID, f)
-	if len(caption) > 0 {
-		msg.Caption = caption[0]
-	}
-	a.bot.Send(msg)
-}
-
-func (a *Bot) Sendfile(chatID int64, path string, caption ...string) {
-	if a == nil {
-		return
-	}
-	msg := api.NewDocumentUpload(chatID, path)
-	if len(caption) > 0 {
-		msg.Caption = caption[0]
-	}
-	a.bot.Send(msg)
-}
-
-func (a *Bot) SendfileBytes(chatID int64, f interface{}, caption ...string) (err error) {
-	if a == nil {
-		return
-	}
-	msg := api.NewDocumentUpload(chatID, f)
-	if len(caption) > 0 {
-		msg.Caption = caption[0]
-	}
-	_, err = a.bot.Send(msg)
-	return
-} */
 
 func (a *Bot) Start(router ...func(*Context)) {
 	if a == nil {
@@ -316,6 +116,22 @@ func (a *Bot) Start(router ...func(*Context)) {
 		if update.Message == nil { // ignore any non-Message Updates
 			continue
 		}
+		// else if update.CallbackQuery != nil {
+		// 	// Respond to the callback query, telling Telegram to show the user
+		// 	// a message with the data received.
+		// 	callback := api.NewCallback(update.CallbackQuery.ID, update.CallbackQuery.Data)
+		// 	if _, err := a.bot.Request(callback); err != nil {
+		// 		fmt.Println(err)
+		// 		continue
+		// 	}
+
+		// 	// And finally, send a message containing the data received.
+		// 	msg := api.NewMessage(update.CallbackQuery.Message.Chat.ID, update.CallbackQuery.Data)
+		// 	if _, err := a.bot.Send(msg); err != nil {
+		// 		fmt.Println(err)
+		// 		continue
+		// 	}
+		// }
 
 		if a.pass != "" {
 			switch update.Message.Text {
