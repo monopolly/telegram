@@ -2,10 +2,9 @@ package telegram
 
 import (
 	api "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/google/uuid"
 )
 
-func (a *Bot) SendMarkdown(chatID int64, text string, buttons ...Button) (err error) {
+func (a *Bot) SendMarkdown(chatID int64, text string, buttons ...*Buttons) (err error) {
 	if a == nil {
 		return
 	}
@@ -21,12 +20,7 @@ func (a *Bot) SendMarkdown(chatID int64, text string, buttons ...Button) (err er
 	msg.DisableWebPagePreview = true
 
 	if buttons != nil {
-		for _, x := range buttons {
-			if x.Handler != nil {
-				a.callbacks.list[uuid.New().String()] = x.Handler
-			}
-		}
-		msg.ReplyMarkup = createURLButtons(buttons...)
+		msg.ReplyMarkup = buttons[0].Done()
 	}
 
 	_, err = a.bot.Send(msg)

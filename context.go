@@ -6,45 +6,55 @@ import (
 	api "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"github.com/monopolly/file"
-	"github.com/monopolly/jsons"
 )
 
 func newContext(u api.Update) (a *Context) {
 	a = new(Context)
 	a.c = u
-	a.User = u.Message.From.ID
+	a.User = int(u.Message.From.ID)
 	a.Body = u.Message.Text
 	a.Login = u.Message.From.UserName
 	a.Command = u.Message.Command()
 	a.Args = u.Message.CommandArguments()
 	a.Message = u.Message
+	a.keys = make(map[string]interface{})
+	a.Callback = u.CallbackQuery
 	return
 }
 
 type Context struct {
-	User    int64
-	Login   string
-	Body    string
-	Command string
-	Args    string
-	Admin   bool
-	Message *api.Message
-	c       api.Update
-	bot     *api.BotAPI
-	keys    []byte
+	User     int
+	Login    string
+	Body     string
+	Command  string
+	Args     string
+	Admin    bool
+	Working  bool
+	Callback *api.CallbackQuery
+	Message  *api.Message
+	c        api.Update
+	bot      *Bot
+	keys     map[string]interface{}
 }
 
-func (a *Context) Get(key string) jsons.Result {
-	return jsons.Get(a.keys, key)
+func (a *Context) Get(key string) interface{} {
+	return a.keys[key]
+}
+
+func (a *Context) CreateDataButton(title, data string, handler func(*Callback)) (r Button) {
+	a.bot.callbacks.Lock()
+	a.bot.callbacks.list[data] = handler
+	a.bot.callbacks.Unlock()
+	return Button{Title: title, Data: data}
 }
 
 func (a *Context) Set(key string, value interface{}) {
-	jsons.Set(a.keys, key, value)
+	a.keys[key] = value
 }
 
 func (a *Context) Text(text string, v ...interface{}) (res api.Message) {
 	msg := api.NewMessage(a.c.Message.Chat.ID, fmt.Sprintf(text, v...))
-	res, _ = a.bot.Send(msg)
+	res, _ = a.bot.bot.Send(msg)
 	return
 }
 
@@ -56,7 +66,7 @@ func (a *Context) SendfileBytes(data []byte, caption ...string) (err error) {
 		f.Name = "upfile"
 	}
 	msg := api.NewDocument(a.c.Message.Chat.ID, f)
-	_, err = a.bot.Send(msg)
+	_, err = a.bot.bot.Send(msg)
 	return
 }
 
@@ -97,11 +107,11 @@ func (a *Context) SendfileBytes(f interface{}, caption ...string) (err error) {
 
 func (a *Context) Download(id string) (body []byte, err error) {
 	c := api.FileConfig{FileID: id}
-	f, err := a.bot.GetFile(c)
+	f, err := a.bot.bot.GetFile(c)
 	if err != nil {
 		return
 	}
-	link := f.Link(a.bot.Token)
+	link := f.Link(a.bot.bot.Token)
 	body, _ = file.Get(link)
 	return
 }
@@ -129,7 +139,7 @@ func (a *Context) Markdown(text string, preview ...bool) {
 	if preview != nil {
 		msg.DisableWebPagePreview = preview[0]
 	}
-	a.bot.Send(msg)
+	a.bot.bot.Send(msg)
 }
 
 func (a *Context) HTML(text string) {
@@ -145,7 +155,7 @@ func (a *Context) HTML(text string) {
 	*/
 	msg := api.NewMessage(a.c.Message.Chat.ID, text)
 	msg.ParseMode = api.ModeHTML
-	a.bot.Send(msg)
+	a.bot.bot.Send(msg)
 }
 
 func (a *Context) Link(title, url string, preview ...bool) {
@@ -163,7 +173,7 @@ func (a *Context) Button(message, title, link string) {
 		),
 	)
 	msg.ParseMode = api.ModeMarkdown
-	_, err := a.bot.Send(msg)
+	_, err := a.bot.bot.Send(msg)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -172,19 +182,19 @@ func (a *Context) Button(message, title, link string) {
 
 func (a *Context) Channel(name, text string) {
 	msg := api.NewMessageToChannel(name, text)
-	a.bot.Send(msg)
+	a.bot.bot.Send(msg)
 }
 
 func (a *Context) Reply(text string) (res api.Message) {
 	msg := api.NewMessage(a.c.Message.Chat.ID, text)
 	msg.ReplyToMessageID = a.c.Message.MessageID
-	res, _ = a.bot.Send(msg)
+	res, _ = a.bot.bot.Send(msg)
 	return
 }
 
 func (a *Context) Play(res api.Message, newtext string) {
 	msg := api.NewEditMessageText(res.Chat.ID, res.MessageID, newtext)
-	a.bot.Send(msg)
+	a.bot.bot.Send(msg)
 }
 
 /* func (a *Context) Buttons(title, link string) {

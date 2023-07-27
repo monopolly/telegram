@@ -2,7 +2,7 @@ package telegram
 
 import api "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
-func createURLButtons(list ...Button) (res interface{}) {
+func createButtons(list ...Button) (res *api.InlineKeyboardMarkup) {
 
 	var row []api.InlineKeyboardButton
 
@@ -10,17 +10,28 @@ func createURLButtons(list ...Button) (res interface{}) {
 		row = append(row, x.button())
 	}
 
-	return api.NewInlineKeyboardMarkup(api.NewInlineKeyboardRow(row...))
+	b := api.NewInlineKeyboardMarkup(api.NewInlineKeyboardRow(row...))
+	return &b
 }
 
 type Button struct {
-	Title   string
-	Link    string
-	Handler func(m *Message)
+	Title string
+	Link  string
+	Data  string
 }
 
 func (a *Button) button() api.InlineKeyboardButton {
-	return api.NewInlineKeyboardButtonURL(a.Title, a.Link)
+	switch a.Data != "" {
+	case true:
+		return api.NewInlineKeyboardButtonData(a.Title, a.Data)
+	default:
+		return api.NewInlineKeyboardButtonURL(a.Title, a.Link)
+	}
 }
 
-// button :=
+func CreateCallbackButton(bot *Bot, title, data string, handler func(*Callback)) (r Button) {
+	bot.callbacks.Lock()
+	bot.callbacks.list[data] = handler
+	bot.callbacks.Unlock()
+	return Button{Title: title, Data: data}
+}

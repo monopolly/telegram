@@ -11,6 +11,8 @@ import (
 	"github.com/monopolly/file"
 )
 
+type Callback = api.CallbackQuery
+
 const maxLen = 4000 //telegram
 
 func New(token string, admins ...int64) (a *Bot, err error) {
@@ -31,7 +33,7 @@ func New(token string, admins ...int64) (a *Bot, err error) {
 		Token: token,
 	})
 
-	a.callbacks.list = make(map[string]func(*Message))
+	a.callbacks.list = make(map[string]func(*Callback))
 	return
 }
 
@@ -45,7 +47,8 @@ type Bot struct {
 	filebot *telebot.Bot
 
 	callbacks struct {
-		list map[string]func(*Message)
+		sync.Mutex
+		list map[string]func(*Callback)
 	}
 }
 
@@ -113,7 +116,7 @@ func (a *Bot) Start(router ...func(*Context)) {
 	updates.Clear()
 
 	for update := range updates {
-		if update.Message == nil { // ignore any non-Message Updates
+		if update.Message == nil && update.CallbackQuery == nil && update.InlineQuery == nil { // ignore any non-Message Updates
 			continue
 		}
 		// else if update.CallbackQuery != nil {
@@ -145,15 +148,58 @@ func (a *Bot) Start(router ...func(*Context)) {
 			}
 		}
 
-		c := newContext(update)
-		c.bot = a.bot
-		if a.admins[c.c.Message.From.ID] {
-			c.Admin = true
+		if update.CallbackQuery != nil {
+			go a.callback(update)
+			continue
 		}
 
+		c := newContext(update)
+		c.bot = a
+		c.Admin = a.Admin(int(c.Message.From.ID))
 		if a.router != nil {
 			go a.router(c)
 		}
 
 	}
+}
+
+func (a *Bot) CreateDataButton(title, data string, handler func(*Callback)) (r Button) {
+	a.callbacks.Lock()
+	a.callbacks.list[data] = handler
+	a.callbacks.Unlock()
+	return Button{Title: title, Data: data}
+}
+
+func (a *Bot) callback(c api.Update) {
+	defer a.callbackReply(c.CallbackQuery.ID)
+	var f func(*Callback)
+	a.callbacks.Lock()
+	f = a.callbacks.list[c.CallbackQuery.Data]
+	a.callbacks.Unlock()
+	if f == nil {
+		//have to reply
+		return
+	}
+	f(c.CallbackQuery)
+
+}
+
+func (a *Bot) callbackReply(id string) {
+	callback := api.NewCallback(id, "")
+	a.bot.Request(callback)
+
+	// msg := api.NewMessage(int64(chat), "")
+	// msg.ReplyToMessageID = messageID
+	// a.bot.Send(msg)
+}
+
+func (a *Bot) DeleteCallback(data string) {
+	delete(a.callbacks.list, data)
+}
+
+func (a *Bot) Admin(id int) (res bool) {
+	a.m.Lock()
+	res = a.admins[int64(id)]
+	a.m.Unlock()
+	return
 }
