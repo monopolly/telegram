@@ -33,7 +33,7 @@ func (a *Play) Play(text string, args ...interface{}) (err error) {
 		}
 		a.m = &out
 	default:
-		msg := api.NewEditMessageText(int64(a.user), a.m.MessageID, fmt.Sprintf(text, args...))
+		msg := api.NewEditMessageText(int64(a.user), a.m.MessageID, text)
 		_, err = a.bot.bot.Send(msg)
 	}
 	return
